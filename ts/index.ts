@@ -24,9 +24,14 @@ async function run(argv: string[]) {
         throw new Error('Empty command');
     }
     let factory = new NodeFactory();
-    // global_node = factory.createNode(command.command as string, command.options);
+    console.log(command.options)
+    let objOptions = Object.create(null);
+    for (var key of command.options.keys()) {
+        objOptions[key] = command.options.get(key);
+    }
+    global_node = factory.createNode(command.command as string, objOptions);
 
-    // global_node.startServer();
+    global_node.startServer();
 
 }
 if (require.main === module) {

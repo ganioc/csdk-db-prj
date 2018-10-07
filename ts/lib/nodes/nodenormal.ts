@@ -5,9 +5,14 @@ export class NodeNormal extends Node implements NodeInterface {
         super(options)
     }
     init() {
-        console.log('init')
+        console.log(this.id, '-->init')
     }
     run() {
-        console.log('run')
+        console.log('-->run')
+    }
+    startServer() {
+        this.init();
+
+        console.log(this.id, '-->started');
     }
 }

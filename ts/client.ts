@@ -1,14 +1,23 @@
 import * as net from 'net';
 import * as colors from 'colors';
+import * as events from 'events';
 
-const P2P_PORT = 8082;
+let ee = new events.EventEmitter();
+
+const P2P_PORT = 8083;
 
 var connect = () => {
     var client = net.connect({ port: P2P_PORT }, function () {
         console.log('连接到服务器！');
     });
     client.on('data', function (data) {
+        let t = new Date();
+        console.log(colors.green(t.toTimeString()))
+        console.log(colors.yellow('<--' + 'Rev from ' + client.remoteAddress + ':' + client.remotePort))
         console.log(data.toString());
+        ee.emit('data', data);
+        // client.write('got it!')
+
         // client.end();
     });
     client.on('end', function () {
@@ -24,6 +33,10 @@ var connect = () => {
             connect();
         }, 2000);
     })
+
+    ee.on('data', (data) => {
+        client.write(data);
+    });
 }
 
 connect();

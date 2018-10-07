@@ -33,8 +33,8 @@ export const CONFIG = {
     version: 'V1.0',
     beatPeriodGrain: 1000, // 每1s执行一次队列检查任务
     beatPeriod: 10000, // 10s启动一次动作
-    maxP2pConnection: 12,
-
+    defaultMaxP2pConnection: 12,
+    defaultRestartDelay: 2000,
 }
 
 export interface NodeState {
