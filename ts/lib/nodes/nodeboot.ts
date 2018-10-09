@@ -28,9 +28,7 @@ export class NodeBoot extends Node implements NodeInterface {
         this.init();
         console.log(this.id, '-->started');
 
-        this.createServer((connection) => {
-
-        });
+        this.createServer();
 
         this.run();
     }

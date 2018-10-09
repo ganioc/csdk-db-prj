@@ -42,7 +42,7 @@ export abstract class Node {
     emptyConnectionLst(): void {
         this.connectionLst = [];
     }
-    public createServer(connectionCB: (conn: net.Socket) => void): void {
+    public createServer(): void {
         this.emptyConnectionLst();
 
         this.server = net.createServer((connection) => {
@@ -93,14 +93,14 @@ export abstract class Node {
         this.server.on('error', (err) => {
             console.log(colors.red('Server ==>'), err);
             setTimeout(() => {
-                this.createServer(connectionCB);
+                this.createServer();
             }, this.RESTART_DELAY)
 
             console.log(colors.blue('Restart server after ' + 2 + ' seconds'));
         })
         this.server.on('close', () => {
             setTimeout(() => {
-                this.createServer(connectionCB);
+                this.createServer();
             }, this.RESTART_DELAY)
 
             console.log(colors.blue('Restart server after ' + 2 + ' seconds'));
