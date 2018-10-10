@@ -4,10 +4,10 @@ import * as events from 'events';
 
 let ee = new events.EventEmitter();
 
-const P2P_PORT = 8083;
+const P2P_PORT = 38090;
 
 var connect = () => {
-    var client = net.connect({ port: P2P_PORT }, function () {
+    var client = net.connect({ host: 'localhost', port: P2P_PORT, family: 4 }, function () {
         console.log('连接到服务器！');
     });
     client.on('data', function (data) {
@@ -34,9 +34,15 @@ var connect = () => {
         }, 2000);
     })
 
+    client.on('close', () => {
+        console.log('client closed')
+    })
+
     ee.on('data', (data) => {
         client.write(data);
     });
+
+
 }
 
 connect();

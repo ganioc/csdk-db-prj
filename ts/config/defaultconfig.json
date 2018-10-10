@@ -1,0 +1,8 @@
+{
+    "role": "boot",
+    "peer_id": "defaultPeer",
+    "p2p_port": 38090,
+    "p2p_end": [],
+    "max_connection": 6,
+    "restart_delay": 1000
+}

@@ -16,7 +16,6 @@ let global_node: Node;
 //var net = require('net');
 
 
-
 async function run(argv: string[]) {
     let command = funcParseCommand(argv);
     console.log(command);
