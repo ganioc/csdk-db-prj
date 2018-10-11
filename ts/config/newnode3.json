@@ -1,0 +1,11 @@
+{
+    "role": "normal",
+    "peer_id": "node3",
+    "p2p_port": 38093,
+    "p2p_end": [{
+        "addr": "127.0.0.1",
+        "port": 38090
+    }],
+    "max_connection": 6,
+    "restart_delay": 1000
+}

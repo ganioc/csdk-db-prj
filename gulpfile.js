@@ -9,7 +9,12 @@ gulp.task('compile', () => {
 })
 
 gulp.task('copy', () => {
-    gulp.src(['./ts/config/defaultconfig.json'])
+    gulp.src([
+            './ts/config/defaultconfig.json',
+            './ts/config/newnode1.json',
+            './ts/config/newnode2.json',
+            './ts/config/newnode3.json',
+        ])
         .pipe(gulp.dest('./dist/config'))
 })
 
