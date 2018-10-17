@@ -8,10 +8,11 @@
  * 
  * 
  */
-import { P2PLink, IfP2PLinkOptions, IfP2PLinkEnd, InP2PLink, OutP2PLink } from './p2plink';
+import { P2PLink, IfP2PLinkOptions, IfP2PLinkEnd, InP2PLink, OutP2PLink, IfP2PLinkPacket } from './p2plink';
 import * as Events from 'events';
 import * as net from 'net';
 import { cl, clerror, clinfo, clmark } from '../tools/formator'
+import { NetBuffer, MSG_MODE } from './netbuffer';
 
 
 export interface IfP2PNetOptions {
@@ -25,12 +26,13 @@ export interface IfP2PNetOptions {
 export class P2PNet {
     public em: Events.EventEmitter;
     private inLinkLst: InP2PLink[];
-    // private outLinkLst: P2PLink[];
     private server: net.Server;
     private p2pPort: number;
     private p2pEnd: OutP2PLink[];
     private RESTART_DELAY: number;
     private MAX_IN_CONNECTION: number;
+    private id: string;
+    private dataBuffer: NetBuffer;
 
     constructor(options: IfP2PNetOptions) {
         clinfo('global config:')
@@ -38,7 +40,7 @@ export class P2PNet {
         // console.log(options)
 
         this.em = new Events.EventEmitter();
-        this.inLinkLst = [];
+        this.inLinkLst = [];// 存放所有的link
         this.server = Object.create(null);
 
         if (options.p2p_port === undefined) {
@@ -59,10 +61,11 @@ export class P2PNet {
 
         this.RESTART_DELAY = options.restart_delay;
         this.MAX_IN_CONNECTION = options.max_connection;
-    }
-    broadcast() {
+        this.id = options.peer_id;// 唯一的网络 id，区分节点名称
 
+        this.dataBuffer = new NetBuffer();
     }
+
     clearLinkLst() {
         this.inLinkLst = [];
         // delete this.inLinkLst;
@@ -95,6 +98,7 @@ export class P2PNet {
                 connection: connection
             });
             inLink.start();
+            inLink.setRunning();
             this.inLinkLst.push(inLink);
 
         });
@@ -115,13 +119,32 @@ export class P2PNet {
 
         this.em.on('linkclose', (d) => {
             let index = this.inLinkLst.findIndex(function (o) {
-                return o.getAddr() === d.data.addr && o.getPort() === d.data.port;
+                return o.getRemoteAddress() === d.data.addr && o.getRemotePort() === d.data.port;
             });
+            // 将link从list里删去
             if (index !== -1) this.inLinkLst.splice(index, 1);
             clinfo('Link Removed: ', d.data.addr, d.data.port);
         });
-        this.em.on('packet', (rcvStuff) => {
+        this.em.on('packet', (rcvStuff: IfP2PLinkPacket) => {
             clinfo('Packet rev:', rcvStuff.addr, rcvStuff.port);
         });
     }
+    broadcast(data: Buffer) {
+        this.send("null", MSG_MODE.bMode, data);
+    }
+    sendTo(peer_id: string, data: Buffer) {
+        this.send(peer_id, MSG_MODE.tMode, data);
+    }
+    send(peer_id: string, mode: MSG_MODE, data: Buffer) {
+        let dataSend: Buffer = this.dataBuffer.pack(this.id, peer_id, mode, data);
+
+        this.inLinkLst.forEach(async (item) => {
+            await item.send(dataSend);
+        });
+
+        this.p2pEnd.forEach(async (item) => {
+            await item.send(dataSend);
+        });
+    }
+
 }

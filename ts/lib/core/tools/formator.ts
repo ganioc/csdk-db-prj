@@ -96,3 +96,20 @@ export const clinfo = (...args: any[]): void => {
 export const clmark = (...args: any[]): void => {
     cltime([COLOR_MARK(args.join(' '))]);
 }
+
+export const bufToUInt = (buf: Buffer): number => {
+    if (buf.length !== 8) {
+        throw new Error('bufToUint serious error');
+    }
+    let val1: number = 0;
+
+    val1 = buf.readUIntBE(0, 8);
+
+    return val1;
+}
+export const uintToBuf = (uint: number): Buffer => {
+    let buf = new Buffer(8);
+
+    buf.writeUIntBE(uint, 0, 8);
+    return buf;
+}

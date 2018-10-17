@@ -55,29 +55,27 @@ export class LocalDB {
     }
     openTable(nameTable: string): Promise<ErrorCode> {
         return new Promise((resolve, reject) => {
-            this.db.run('CREATE TABLE IF NOT EXISTS $table ( name CHAR(64) NOT NULL);',
-                {
-                    $table: nameTable,
-                },
+            let table = nameTable;
+            this.db.run(`CREATE TABLE IF NOT EXISTS "${table}" ( "name" CHAR(64) NOT NULL UNIQUE);`,
                 (err) => {
                     if (err) {
+                        clerror('-'.repeat(40))
                         console.log(err);
-                        Promise.reject(ErrorCode.RESULT_FAILED);
+                        reject(ErrorCode.RESULT_FAILED);
                     } else {
-                        Promise.resolve(ErrorCode.RESULT_OK);
+                        resolve(ErrorCode.RESULT_OK);
                     }
                 });
         });
     }
     insertToTable(nameTable: string, name: string): Promise<ErrorCode> {
         return new Promise((resolve, reject) => {
-            this.db.run('INSERT INTO $table (name) VALUES ($name);',
-                {
-                    $table: nameTable,
-                    $name: name,
-                },
+            this.db.run(`INSERT INTO "${nameTable}" (name) VALUES ("${name}")`,
                 (err) => {
                     if (err) {
+                        clerror('-'.repeat(40))
+                        console.log(err);
+                        clerror('-'.repeat(40))
                         reject(ErrorCode.RESULT_FAILED);
                     } else {
                         resolve(ErrorCode.RESULT_OK);
@@ -87,10 +85,8 @@ export class LocalDB {
     }
     readTable(nameTable: string): Promise<ErrorCode> {
         return new Promise((resolve, reject) => {
-            this.db.run('SELECT * from $table;',
-                {
-                    $table: nameTable,
-                },
+            let table = nameTable;
+            this.db.all(`SELECT * from "${table}"`,
                 (err: any, rows: any) => {
                     if (err) {
                         reject(ErrorCode.RESULT_FAILED);

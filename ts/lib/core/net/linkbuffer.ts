@@ -1,6 +1,8 @@
-import { clerror } from "../tools/formator";
+import { clerror, clinfo, bufToUInt } from "../tools/formator";
 import * as events from 'events';
+import { FILE } from "dns";
 
+const FILENAME = '[linkbuffer.ts]'
 const MAX_DATA_SIZE = 2 * 1024 * 1024;
 
 
@@ -12,6 +14,7 @@ enum STATE {
     magic1,
     magic2,
     magic3,
+    timestamp,
     len0,
     len1,
     len2,
@@ -30,11 +33,21 @@ const MAGIC3 = 'F'.charCodeAt(0);
 const TAIL0 = 'E'.charCodeAt(0);
 const TAIL1 = 'N'.charCodeAt(0);
 
+export interface IfUnpack {
+    head: Buffer;
+    magic: Buffer;
+    timestamp: number;
+    len: number;
+    data: Buffer;
+    tail: Buffer;
+}
+
 export class LinkBuffer extends events.EventEmitter {
     private dataBuffer: Buffer;
     private dataIndex: number;
     private state: STATE;
     private counterBody: number;
+    private counterTimestamp: number;
 
     constructor() {
         super();
@@ -42,10 +55,12 @@ export class LinkBuffer extends events.EventEmitter {
         this.dataIndex = 0;
         this.state = STATE.idle;
         this.counterBody = 0;
+        this.counterTimestamp = 0;
     }
     parse(data: Buffer) {
-        let bLoop: boolean = true;
+        // let bLoop: boolean = true;
         let i: number;
+
 
         let bJump = (inNum: number, expect: number, nextState: number): boolean => {
             if (inNum === expect) {
@@ -95,9 +110,19 @@ export class LinkBuffer extends events.EventEmitter {
                     bJump(d, MAGIC3, STATE.magic3);
                     break;
                 case STATE.magic3:
-                    this.counterBody = d << 24;
-                    this.state = STATE.len0;
                     this.dataBuffer[this.dataIndex++] = d;
+                    this.counterTimestamp = 7;
+                    this.state = STATE.timestamp;
+                    break;
+                case STATE.timestamp:
+                    if (this.counterTimestamp === 0) {
+                        this.counterBody = d << 24;
+                        this.state = STATE.len0;
+                        this.dataBuffer[this.dataIndex++] = d;
+                    } else {
+                        this.dataBuffer[this.dataIndex++] = d;
+                        this.counterTimestamp--;
+                    }
                     break;
                 case STATE.len0:
                     this.counterBody += d << 16;
@@ -143,7 +168,14 @@ export class LinkBuffer extends events.EventEmitter {
                         let buf = this.dataBuffer.slice(0, this.dataIndex);
 
                         // send it through linkbuffer
-                        this.emit('packet', buf);
+                        let netMsg: Buffer | undefined;
+                        netMsg = this.verify(buf);
+                        if (netMsg !== undefined) {
+                            this.emit('packet', netMsg);
+                        } else {
+                            clerror('Decode packet error');
+                        }
+
                     }
                     this.state = STATE.idle;
                     this.dataIndex = 0;
@@ -155,8 +187,56 @@ export class LinkBuffer extends events.EventEmitter {
             }
         }
     }
-    verify(packet: Buffer): boolean {
+    verify(packet: Buffer): Buffer | undefined {
+        let unpacked = this.unpack(packet);
 
-        return true;
+        if (unpacked.magic[0] !== MAGIC0) {
+            return undefined;
+        } else if (unpacked.magic[1] !== MAGIC1) {
+            return undefined;
+        }
+
+
+        return unpacked.data;
+    }
+    pack(data: Buffer): Buffer {
+        let length = data.length;
+        let buf = new Buffer(length + 2 + 4 + 8 + 4 + 2);
+        let i = 0;
+        buf[0] = HEAD0;
+        buf[1] = HEAD1;
+        buf[2] = MAGIC0;
+        buf[3] = MAGIC1;
+        buf[4] = MAGIC2;
+        buf[5] = MAGIC3;
+        let timestamp = new Date().getTime();
+        buf.writeUIntBE(timestamp, 6, 8);
+        buf.writeUIntBE(length, 14, 4);
+
+        for (i = 0; i < length; i++) {
+            buf[18 + i] = data[i];
+        }
+        buf[18 + i++] = TAIL0;
+        buf[18 + i] = TAIL1;
+
+        return buf;
+    }
+    unpack(data: Buffer): IfUnpack {
+        let dataUnpack: IfUnpack = Object.create(null);
+
+        dataUnpack.head = data.slice(0, 2);
+        dataUnpack.magic = data.slice(2, 2 + 4);
+        // check timestamp
+        dataUnpack.timestamp = data.readUIntBE(6, 8);
+        // let bufTimestamp = packet.slice(6, 14);
+        // clinfo(FILENAME, bufToUInt(bufTimestamp));
+
+        //check length
+        dataUnpack.len = data.readUIntBE(14, 4);
+        dataUnpack.data = data.slice(18, data.length - 2);
+        dataUnpack.tail = data.slice(data.length - 2, data.length);
+
+        return dataUnpack;
     }
 }
+

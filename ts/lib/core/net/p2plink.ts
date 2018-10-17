@@ -9,11 +9,17 @@ import { clmark, clerror } from '../tools/formator';
 import { LinkBuffer } from './linkbuffer';
 import { ErrorCode } from '../error_code'
 
+const FILENAME = '[p2plink.ts]';
 const LINK_RECONNECT_DELAY = 5000;
 
 export interface IfP2PLinkOptions {
     em: Events.EventEmitter;
 
+}
+export interface IfP2PLinkPacket {
+    addr: string,
+    port: number,
+    data: Buffer,
 }
 type IfInP2PLinkOptions = IfP2PLinkOptions & {
     connection: net.Socket;
@@ -25,10 +31,18 @@ export interface IfP2PLinkEnd {
     addr: string;
     port: number;
 }
+export interface IfP2PLinkPacket {
+    addr: string;
+    port: number;
+    data: Buffer;
+}
 export abstract class P2PLink {
     protected em: Events.EventEmitter;
     // protected connection: net.Socket;
     protected dataBuffer: LinkBuffer;
+
+    protected _bRunning: boolean;
+    protected connection: net.Socket;
 
     constructor(options: IfP2PLinkOptions) {
         if (options.em === undefined) {
@@ -45,16 +59,14 @@ export abstract class P2PLink {
                     port: this.getRemotePort(),
                     data: data
                 });
-        })
+        });
+
+        this._bRunning = false;
+        this.connection = Object.create(null);
     }
     abstract start(): void;
-    abstract getRemoteAddress(): string;
-    abstract getRemotePort(): number;
+    // abstract send(data: Buffer): Promise<ErrorCode>;
 
-
-    abstract send(data: Buffer): Promise<ErrorCode>;
-    // abstract getLocalAddress(): string;
-    // abstract getLocalPort(): number;
     onData(connection: net.Socket): void {
         connection.on('data', (data) => {
             this.dataBuffer.parse(data);
@@ -65,11 +77,33 @@ export abstract class P2PLink {
             clerror(err);
         })
     }
+    setRunning() {
+        this._bRunning = true;
+    }
+    unsetRunning() {
+        this._bRunning = false;
+    }
+    getRunning(): boolean {
+        return this._bRunning;
+    }
+    getRemoteAddress(): string {
+        return this.connection.remoteAddress as string;
+    }
+    getRemotePort(): number {
+        return this.connection.remotePort as number;
+    }
+
+    send(data: Buffer): Promise<ErrorCode> {
+        return new Promise<ErrorCode>((resolve) => {
+            this.connection.write(this.dataBuffer.pack(data), () => {
+                return resolve(ErrorCode.RESULT_OK);
+            });
+        });
+    }
 
 }
 // 无须管重连的事情
 export class InP2PLink extends P2PLink {
-    private connection: net.Socket;
 
     constructor(options: IfInP2PLinkOptions) {
         super(options as IfP2PLinkOptions);
@@ -80,15 +114,13 @@ export class InP2PLink extends P2PLink {
 
         this.onError(this.connection);
 
-        // this.connection.on('error', (err) => {
-        //     clerror('InP2PLink error:', err)
-        // })
-
         this.connection.on('end', () => {
             clerror("Link ended from ", this.connection.remoteAddress, this.connection.remotePort);
         })
         this.connection.on('close', () => {
             clerror('Link closed from ', this.connection.remoteAddress, this.connection.remotePort);
+            this.unsetRunning();
+
             this.em.emit('linkclose', {
                 status: 'NOK',
                 data: {
@@ -98,37 +130,25 @@ export class InP2PLink extends P2PLink {
             })
         })
     }
-    getAddr() {
-        return this.connection.remoteAddress;
-    }
-    getPort() {
-        return this.connection.remotePort;
-    }
-    getRemoteAddress(): string {
-        return this.connection.remoteAddress as string;
-    }
-    getRemotePort(): number {
-        return this.connection.remotePort as number;
-    }
-    send(data: Buffer): Promise<ErrorCode> {
-        return new Promise<ErrorCode>((resolve) => {
-            this.connection.write(data, () => {
-                return resolve(ErrorCode.RESULT_OK);
-            });
-        });
-    }
+
+    // send(data: Buffer) {
+    //     // return new Promise<ErrorCode>((resolve) => {
+    //     //     this.connection.write(data, () => {
+    //     //         return resolve(ErrorCode.RESULT_OK);
+    //     //     });
+    //     // });
+    // }
 }
 // 需要管理重连
 export class OutP2PLink extends P2PLink {
     private end: IfP2PLinkEnd;
-    private connection: net.Socket;
+    // private connection: net.Socket;
 
     constructor(options: IfOutP2PLinkOptions) {
         super({
             em: options.em,
         });
         this.end = options.end;
-        this.connection = Object.create(null);
     }
     start(): void {
         this.connect();
@@ -142,6 +162,8 @@ export class OutP2PLink extends P2PLink {
             },
             () => {
                 clmark('Connected to ', this.end.addr, this.end.port);
+                this.setRunning();
+
                 this.em.emit('linkconnect',
                     {
                         status: 'OK',
@@ -160,9 +182,13 @@ export class OutP2PLink extends P2PLink {
 
         });
 
+        this.connection.on('error', (err) => {
+            clerror(FILENAME, 'outLink:', err);
+        });
+
         this.connection.on('close', () => {
             clerror('Link closed ', this.end.addr, this.end.port);
-
+            this.unsetRunning();
             setTimeout(() => {
                 this.connect();
             }, LINK_RECONNECT_DELAY)
@@ -171,17 +197,6 @@ export class OutP2PLink extends P2PLink {
         this.onError(this.connection);
 
     }
-    getRemoteAddress(): string {
-        return this.connection.remoteAddress as string;
-    }
-    getRemotePort(): number {
-        return this.connection.remotePort as number;
-    }
-    send(data: Buffer): Promise<ErrorCode> {
-        return new Promise<ErrorCode>((resolve) => {
-            this.connection.write(data, () => {
-                return resolve(ErrorCode.RESULT_OK);
-            });
-        });
-    }
+
+
 }

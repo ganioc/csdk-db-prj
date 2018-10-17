@@ -20,10 +20,11 @@ var db = new sqlite3.Database('testdb.db');
 //         console.log(row.id + ": " + row.info);
 //     });
 // });
-
+let tab = 'Tiger'
 db.serialize(() => {
-    db.run('CREATE TABLE IF NOT EXISTS "Tiger" (name TEXT NOT NULL UNIQUE);');
-    db.run('INSERT INTO Tiger (name) VALUES ( $value )', { $value: "mouse" });
+    db.run(`CREATE TABLE IF NOT EXISTS "${tab}" ("name" TEXT NOT NULL UNIQUE)`);
+    db.run('INSERT INTO Tiger (name) VALUES ( $value )', { $value: "mosuse" });
+    db.run('INSERT INTO Tiger (name) VALUES ( $value )', { $value: "horse" });
     db.each('SELECT rowid AS id , name from Tiger', (err: any, row: any) => {
         console.log(row.id + ':' + row.name)
     })

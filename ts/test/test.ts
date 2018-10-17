@@ -9,6 +9,10 @@ var expect = require('chai').expect;
 import * as formator from '../lib/core/tools/formator'
 import { LocalDB, IfDBOptions } from '../lib/core/db/localdatabase';
 import { ErrorCode } from '../lib/core/error_code'
+import * as fs from 'fs';
+import { LinkBuffer } from '../lib/core/net/linkbuffer';
+import { NetBuffer, MSG_MODE } from '../lib/core/net/netbuffer';
+
 
 // console.log(colors.red('-'.repeat(40)))
 
@@ -18,8 +22,8 @@ describe('Test lib\/', () => {
         let bufStr = Buffer.from(str);
         let encodeStr = base58.encode(bufStr);
         let decodeStr = base58.decode(encodeStr);
-        console.log('encodeStr', encodeStr)
-        console.log('decodeStr', decodeStr.toString())
+        // console.log('encodeStr', encodeStr)
+        // console.log('decodeStr', decodeStr.toString())
 
         it('encode hi Should return  8wr', () => {
             chai.expect(encodeStr, '8wr')
@@ -54,75 +58,131 @@ describe('Test lib\/', () => {
     });
 
     describe('Test sqlite3', () => {
-        let db = new LocalDB({ name: 'testdb.db', tables: [] });
+        let FILE_DB = 'testdb-random-00.db';
+
+        async function checkFile() {
+            if (fs.existsSync(FILE_DB)) {
+                await new Promise((resolve, reject) => {
+                    fs.unlinkSync(FILE_DB);
+                    resolve();
+                });
+            }
+        }
+        checkFile();
 
 
-        // Promise.resolve('OK')
-        //     .then((fb) => {
-        //         formator.clinfo('test sqlite3')
-        //     })
-        //     .then((fb) => { }, (err) => {
+        let db = new LocalDB({ name: FILE_DB, tables: [] });
 
-        //     })
-        //     .then((fb) => {
-        //         it('Test db create table', () => {
-        //             chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
-        //         })
-        //     })
-        //     .catch((err) => {
-        //         feedback = ErrorCode.RESULT_FAILED;
-        //         it('Test db create table', () => {
-        //             chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
-        //         })
-        //     });
+        it('test open db', (done) => {
+            db.open()
+                .then(() => {
+                    return Promise.resolve(ErrorCode.RESULT_OK)
+                }, () => {
+                    return Promise.resolve(ErrorCode.RESULT_FAILED)
+                })
+                .then((d) => {
+                    expect(d).to.equal(ErrorCode.RESULT_OK);
+                }).then(done);
+        })
 
-        /*
-                async function funcTest() {
-                    feedback = await db.init();
-                }
-                funcTest();
-        
-                it('Test db open', () => {
-                    chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
+        it('test open table', (done) => {
+            db.openTable('tectron')
+                .then(() => {
+                    return Promise.resolve(ErrorCode.RESULT_OK)
+                }, () => {
+                    return Promise.resolve(ErrorCode.RESULT_FAILED)
                 })
-        
-                async function funcTest3() {
-                    feedback = await db.initTable('people');
-                }
-                funcTest3();
-                it('Test db create table', () => {
-                    chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
+                .then((d) => {
+                    expect(d).to.equal(ErrorCode.RESULT_OK);
+                }).then(done);
+        })
+
+        it('test insert into table', (done) => {
+            db.insertToTable('tectron', "leechs")
+                .then((data) => {
+                    return Promise.resolve(ErrorCode.RESULT_OK)
+                }, (err) => {
+                    return Promise.resolve(ErrorCode.RESULT_FAILED)
                 })
-        
-                async function funcTest4() {
-                    feedback = await db.insertToTable('people', 'Philips');
-                    feedback = await db.insertToTable('people', 'Tracy');
-                }
-                funcTest4();
-                it('Test db insert to table', () => {
-                    chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
+                .then((d) => {
+                    expect(d).to.equal(ErrorCode.RESULT_OK);
+                }).then(done);
+        })
+        it('test read table', (done) => {
+            db.readTable('tectron')
+                .then((d) => {
+                    return Promise.resolve(ErrorCode.RESULT_OK)
+                }, () => {
+                    return Promise.resolve(ErrorCode.RESULT_FAILED)
                 })
-        
-                async function funcTest5() {
-                    feedback = await db.readTable('people');
-                }
-                funcTest5();
-                it('Test db read from table', () => {
-                    chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
+                .then((d) => {
+                    expect(d).to.equal(ErrorCode.RESULT_OK);
+                }).then(done);
+        })
+        it('test close table', (done) => {
+            db.close()
+                .then(() => {
+                    return Promise.resolve(ErrorCode.RESULT_OK)
+                }, () => {
+                    return Promise.resolve(ErrorCode.RESULT_FAILED)
                 })
-        
-                async function funcTest2() {
-                    feedback = await db.close();
-                }
-                funcTest2();
-        
-                it('Test db close', () => {
-                    chai.expect(feedback.toString(), ErrorCode.RESULT_OK.toString());
-                })
-                */
+                .then((d) => {
+                    expect(d).to.equal(ErrorCode.RESULT_OK);
+                }).then(done);
+        })
+
+
 
     });
 
+    describe('Test buf to uint', () => {
+        // it('buffer to uint', (done) => {
 
+        // });
+        it('uint to buffer, time conversion', () => {
+            let valTime = new Date().getTime();
+            let oldTime = new Date(valTime).toLocaleString();
+
+            formator.clwarn(oldTime);
+            console.log('initial time:', valTime);
+            let buf: Buffer = formator.uintToBuf(valTime);
+            console.log(buf);
+            let val = formator.bufToUInt(buf);
+
+            console.log('decoded time:', val);
+            let newTime = new Date(val).toLocaleString();
+            formator.clwarn(newTime);
+
+            chai.expect(oldTime, newTime);
+        })
+    })
+    describe('Test pack and unpack', () => {
+        it('Test link pack', () => {
+            let data = Buffer.from('helloworld');
+            let linkBuf = new LinkBuffer();
+            let dataEncode = linkBuf.pack(data);
+            formator.clmark('test pack and unpack', dataEncode.length);
+            console.log(dataEncode);
+
+            let dataDecode = linkBuf.unpack(dataEncode);
+
+            // formator.cl(dataDecode);
+
+            chai.expect(dataDecode.len.toString(), data.length.toString());
+        })
+        it('Test net pack', () => {
+            let data = Buffer.from('helloworld');
+            let netBuf = new NetBuffer();
+            let dataEncode = netBuf.pack("1", "2", MSG_MODE.bMode, data);
+            formator.clmark('test net pack and unpack', dataEncode.length);
+            console.log(dataEncode);
+
+            let dataDecode = netBuf.unpack(dataEncode);
+            formator.cl(dataDecode);
+
+            chai.expect("1", "1")
+        })
+
+    })
 
 });
