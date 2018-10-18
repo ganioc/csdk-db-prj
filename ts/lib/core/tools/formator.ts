@@ -113,3 +113,14 @@ export const uintToBuf = (uint: number): Buffer => {
     buf.writeUIntBE(uint, 0, 8);
     return buf;
 }
+
+export const bufToStr = (buf: Buffer) => {
+    let index = 0;
+    for (let i = 0; i < buf.length; i++) {
+        if (buf[i] === 0) {
+            index = i;
+            break;
+        }
+    }
+    return buf.slice(0, index).toString();
+}

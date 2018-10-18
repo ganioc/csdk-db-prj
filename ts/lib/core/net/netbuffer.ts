@@ -1,16 +1,17 @@
-import { clerror, clinfo, bufToUInt } from "../tools/formator";
+import { clerror, clinfo, bufToUInt, bufToStr } from "../tools/formator";
 import * as events from 'events';
 
 const FILENAME = '[netbuffer.ts]';
 
+const MAX_ID_BUFFER_LENGTH = 50;
 const MAX_ID_LENGTH = 24;
 const B_MODE = 'b'.charCodeAt(0);
 const T_MODE = 't'.charCodeAt(0);
 
 export interface IfMsgId {
-    addr: string;
-    port: number;
-    id: number;
+    srcId: string;
+    dstId: string;
+    msgId: number;
 }
 export enum MSG_MODE {
     bMode = B_MODE,
@@ -26,7 +27,6 @@ export interface IfNetUnpack {
     data: Buffer;
 }
 
-
 export class NetBuffer extends events.EventEmitter {
     private msgIdBuffer: IfMsgId[];
     private currentId: number;
@@ -41,8 +41,8 @@ export class NetBuffer extends events.EventEmitter {
     }
     unpack(data: Buffer): IfNetUnpack {
         let deco: IfNetUnpack = Object.create(null);
-        deco.srcId = data.slice(0, MAX_ID_LENGTH).toString();
-        deco.dstId = data.slice(MAX_ID_LENGTH, 2 * MAX_ID_LENGTH).toString();
+        deco.srcId = bufToStr(data.slice(0, MAX_ID_LENGTH));
+        deco.dstId = bufToStr(data.slice(MAX_ID_LENGTH, 2 * MAX_ID_LENGTH));
         deco.msgId = data.readUIntBE(2 * MAX_ID_LENGTH, 4);
         deco.timestamp = data.readUIntBE(2 * MAX_ID_LENGTH + 4, 8);
         deco.mode = data[2 * MAX_ID_LENGTH + 12];
@@ -85,5 +85,36 @@ export class NetBuffer extends events.EventEmitter {
 
 
         return buf;
+    }
+    exist(netMsg: IfNetUnpack): boolean {
+        clinfo('List msgIdBuffer:');
+        console.log(this.msgIdBuffer)
+
+        let found = this.msgIdBuffer.find((item) => {
+            return item.dstId === netMsg.dstId && item.srcId === netMsg.srcId && item.msgId === netMsg.msgId;
+        });
+
+        if (found) {
+            console.log(found);
+            return true;
+        } else {
+            console.log('not found');
+            return false;
+        }
+    }
+    insert(netMsg: IfNetUnpack) {
+        let obj = {
+            srcId: netMsg.srcId,
+            dstId: netMsg.dstId,
+            msgId: netMsg.msgId,
+        };
+        clinfo('insert into idBuffer')
+        console.log(obj);
+        this.msgIdBuffer.push(obj);
+
+        if (this.msgIdBuffer.length > MAX_ID_BUFFER_LENGTH) {
+            this.msgIdBuffer.shift();
+        }
+
     }
 }
