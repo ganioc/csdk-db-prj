@@ -12,7 +12,7 @@ import { P2PLink, IfP2PLinkOptions, IfP2PLinkEnd, InP2PLink, OutP2PLink, IfP2PLi
 import * as Events from 'events';
 import * as net from 'net';
 import { cl, clerror, clinfo, clmark, clwarn } from '../tools/formator'
-import { NetBuffer, MSG_MODE } from './netbuffer';
+import { NetBuffer, MSG_MODE, IfNetUnpack } from './netbuffer';
 
 
 export interface IfP2PNetOptions {
@@ -96,6 +96,10 @@ export class P2PNet {
             }
 
         });
+        this.em.on('appmsg', (data: IfNetUnpack) => {
+            clwarn('Recv appmsg');
+            cl(JSON.parse(data.data.toString()));
+        })
     }
 
     clearLinkLst() {

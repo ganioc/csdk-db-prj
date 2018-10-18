@@ -12,7 +12,10 @@ p2pnet.startServer();
 // clinfo(config.p2p_port);
 
 setInterval(() => {
-    p2pnet.broadcast(Buffer.from("hi"));
+    p2pnet.broadcast(Buffer.from(JSON.stringify({
+        timestamp: new Date().getTime(),
+        name: "genesis"
+    })));
 
 }, 10000)
 
